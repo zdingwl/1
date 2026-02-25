@@ -4,7 +4,7 @@
 
 > 说明：部分 AI/媒体相关接口目前为 **mock 逻辑**（返回结构与状态流可用，具体第三方能力待继续接入）。
 
-当前 images/videos/episode-workflow 已接入任务记录，调用会写入 `tasks` 表用于追踪。
+当前 images/videos/episode-workflow 已接入任务记录，调用会写入 `tasks` 表用于追踪；其中 images/videos 的关键写入路径已使用事务保证一致性。
 
 ## 当前覆盖模块
 
@@ -55,6 +55,7 @@ php -S 0.0.0.0:8000 -t public
 ```bash
 php scripts/route_check.php
 php scripts/schema_check.php
+php scripts/task_contract_check.php
 ./scripts/check_all.sh
 ```
 

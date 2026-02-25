@@ -12,6 +12,7 @@ class TaskService
     {
         SchemaService::ensureCoreTables();
 
+        $status = $this->normalizeStatus($status);
         $now = date('Y-m-d H:i:s');
         $taskKey = $this->generateUniqueTaskKey();
 
@@ -20,8 +21,8 @@ class TaskService
             'task_type' => $taskType,
             'status' => $status,
             'progress' => $status === 'completed' ? 100 : 0,
-            'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-            'result' => json_encode([], JSON_UNESCAPED_UNICODE),
+            'payload' => $this->encodeJson($payload),
+            'result' => $this->encodeJson([]),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -32,9 +33,41 @@ class TaskService
         $task->save([
             'status' => 'completed',
             'progress' => 100,
-            'result' => json_encode($result, JSON_UNESCAPED_UNICODE),
+            'result' => $this->encodeJson($result),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+    }
+
+    public function fail(Task $task, array $result = []): void
+    {
+        $task->save([
+            'status' => 'failed',
+            'progress' => 100,
+            'result' => $this->encodeJson($result),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function decodeField($value): array
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        $status = strtolower(trim($status));
+        $allowed = ['pending', 'running', 'completed', 'failed'];
+        return in_array($status, $allowed, true) ? $status : 'pending';
+    }
+
+    private function encodeJson(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
     }
 
     private function generateUniqueTaskKey(): string

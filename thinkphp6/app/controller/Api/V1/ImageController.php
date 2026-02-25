@@ -12,6 +12,7 @@ use app\model\Scene;
 use app\service\SchemaService;
 use app\service\TaskService;
 use think\Request;
+use think\facade\Db;
 
 class ImageController extends BaseApiController
 {
@@ -33,27 +34,33 @@ class ImageController extends BaseApiController
         }
 
         $sceneId = isset($payload['scene_id']) ? (int)$payload['scene_id'] : null;
-        if ($sceneId !== null && $sceneId > 0 && !Scene::find($sceneId)) {
+        if ($sceneId !== null && $sceneId <= 0) {
+            $sceneId = null;
+        }
+        if ($sceneId !== null && !Scene::find($sceneId)) {
             return $this->error('scene not found', 404);
         }
 
-        $now = $this->now();
-        $item = ImageGeneration::create([
-            'scene_id' => $sceneId,
-            'prompt' => $prompt,
-            'image_url' => '/static/mock/image-' . time() . '.png',
-            'status' => 'completed',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $result = Db::transaction(function () use ($sceneId, $prompt) {
+            $now = $this->now();
+            $item = ImageGeneration::create([
+                'scene_id' => $sceneId,
+                'prompt' => $prompt,
+                'image_url' => '/static/mock/image-' . time() . '.png',
+                'status' => 'completed',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
 
-        $taskService = new TaskService();
-        $task = $taskService->create('image.generate', ['image_generation_id' => $item['id'], 'prompt' => $prompt], 'completed');
+            $task = (new TaskService())->create('image.generate', [
+                'image_generation_id' => $item['id'],
+                'prompt' => $prompt,
+            ], 'completed');
 
-        return $this->success([
-            'image' => $item->toArray(),
-            'task' => $task->toArray(),
-        ], 'created', 0, 201);
+            return ['image' => $item->toArray(), 'task' => $task->toArray()];
+        });
+
+        return $this->success($result, 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -85,18 +92,25 @@ class ImageController extends BaseApiController
             return $this->error('scene not found', 404);
         }
 
-        $item = ImageGeneration::create([
-            'scene_id' => $sceneId,
-            'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'auto generated scene image',
-            'image_url' => '/static/mock/scene-' . $sceneId . '-' . time() . '.png',
-            'status' => 'completed',
-            'created_at' => $this->now(),
-            'updated_at' => $this->now(),
-        ]);
+        $result = Db::transaction(function () use ($sceneId, $scene) {
+            $item = ImageGeneration::create([
+                'scene_id' => $sceneId,
+                'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'auto generated scene image',
+                'image_url' => '/static/mock/scene-' . $sceneId . '-' . time() . '.png',
+                'status' => 'completed',
+                'created_at' => $this->now(),
+                'updated_at' => $this->now(),
+            ]);
 
-        $task = (new TaskService())->create('image.generate.scene', ['scene_id' => $sceneId, 'image_generation_id' => $item['id']], 'completed');
+            $task = (new TaskService())->create('image.generate.scene', [
+                'scene_id' => $sceneId,
+                'image_generation_id' => $item['id'],
+            ], 'completed');
 
-        return $this->success(['image' => $item->toArray(), 'task' => $task->toArray()], 'generated');
+            return ['image' => $item->toArray(), 'task' => $task->toArray()];
+        });
+
+        return $this->success($result, 'generated');
     }
 
     public function upload(Request $request)
@@ -133,7 +147,11 @@ class ImageController extends BaseApiController
         }
 
         $task = (new TaskService())->create('image.background.extract', ['episode_id' => $episodeId], 'completed');
-        return $this->success(['episode_id' => $episodeId, 'task' => $task->toArray(), 'message' => 'background extraction completed (mock)']);
+        return $this->success([
+            'episode_id' => $episodeId,
+            'task' => $task->toArray(),
+            'message' => 'background extraction completed (mock)',
+        ]);
     }
 
     public function batch(int $episodeId)
@@ -143,26 +161,33 @@ class ImageController extends BaseApiController
             return $this->error('episode not found', 404);
         }
 
-        $scenes = Scene::where('episode_id', $episodeId)->order('sort_order', 'asc')->select();
-        $created = [];
-        foreach ($scenes as $scene) {
-            $created[] = ImageGeneration::create([
-                'scene_id' => (int)$scene['id'],
-                'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'batch generated image',
-                'image_url' => '/static/mock/batch-scene-' . $scene['id'] . '-' . time() . '.png',
-                'status' => 'completed',
-                'created_at' => $this->now(),
-                'updated_at' => $this->now(),
-            ])->toArray();
-        }
+        $result = Db::transaction(function () use ($episodeId) {
+            $scenes = Scene::where('episode_id', $episodeId)->order('sort_order', 'asc')->select();
+            $created = [];
+            foreach ($scenes as $scene) {
+                $created[] = ImageGeneration::create([
+                    'scene_id' => (int)$scene['id'],
+                    'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'batch generated image',
+                    'image_url' => '/static/mock/batch-scene-' . $scene['id'] . '-' . time() . '.png',
+                    'status' => 'completed',
+                    'created_at' => $this->now(),
+                    'updated_at' => $this->now(),
+                ])->toArray();
+            }
 
-        $task = (new TaskService())->create('image.batch.generate', ['episode_id' => $episodeId, 'count' => count($created)], 'completed');
+            $task = (new TaskService())->create('image.batch.generate', [
+                'episode_id' => $episodeId,
+                'count' => count($created),
+            ], 'completed');
 
-        return $this->success([
-            'episode_id' => $episodeId,
-            'count' => count($created),
-            'items' => $created,
-            'task' => $task->toArray(),
-        ]);
+            return [
+                'episode_id' => $episodeId,
+                'count' => count($created),
+                'items' => $created,
+                'task' => $task->toArray(),
+            ];
+        });
+
+        return $this->success($result);
     }
 }

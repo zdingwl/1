@@ -8,6 +8,7 @@ use app\common\BaseApiController;
 use app\common\RequestPayload;
 use app\model\Task;
 use app\service\SchemaService;
+use app\service\TaskService;
 use think\Request;
 
 class TaskController extends BaseApiController
@@ -24,7 +25,13 @@ class TaskController extends BaseApiController
             $query->where('status', $status);
         }
 
-        return $this->success(['items' => $query->select()->toArray()]);
+        $service = new TaskService();
+        $items = [];
+        foreach ($query->select() as $task) {
+            $items[] = $this->formatTask($task->toArray(), $service);
+        }
+
+        return $this->success(['items' => $items]);
     }
 
     public function read(string $taskId)
@@ -36,7 +43,7 @@ class TaskController extends BaseApiController
             return $this->error('task not found', 404);
         }
 
-        return $this->success($task->toArray());
+        return $this->success($this->formatTask($task->toArray(), new TaskService()));
     }
 
     public function create(Request $request)
@@ -58,19 +65,19 @@ class TaskController extends BaseApiController
             return $this->error('task_key already exists', 409);
         }
 
-        $now = $this->now();
+        $service = new TaskService();
         $task = Task::create([
             'task_key' => $taskKey,
             'task_type' => $taskType,
             'status' => trim((string) ($payload['status'] ?? 'pending')),
             'progress' => max(0, min(100, (int) ($payload['progress'] ?? 0))),
-            'payload' => json_encode($payload['payload'] ?? [], JSON_UNESCAPED_UNICODE),
-            'result' => json_encode([], JSON_UNESCAPED_UNICODE),
-            'created_at' => $now,
-            'updated_at' => $now,
+            'payload' => json_encode($payload['payload'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'result' => json_encode($payload['result'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'created_at' => $this->now(),
+            'updated_at' => $this->now(),
         ]);
 
-        return $this->success($task->toArray(), 'created', 0, 201);
+        return $this->success($this->formatTask($task->toArray(), $service), 'created', 0, 201);
     }
 
     public function update(Request $request, string $taskId)
@@ -86,11 +93,18 @@ class TaskController extends BaseApiController
         $task->save([
             'status' => trim((string) ($payload['status'] ?? $task['status'])),
             'progress' => max(0, min(100, (int) ($payload['progress'] ?? $task['progress']))),
-            'result' => isset($payload['result']) ? json_encode($payload['result'], JSON_UNESCAPED_UNICODE) : $task['result'],
+            'result' => isset($payload['result']) ? json_encode($payload['result'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : $task['result'],
             'updated_at' => $this->now(),
         ]);
 
-        return $this->success($task->refresh()->toArray(), 'updated');
+        return $this->success($this->formatTask($task->refresh()->toArray(), new TaskService()), 'updated');
+    }
+
+    private function formatTask(array $task, TaskService $service): array
+    {
+        $task['payload'] = $service->decodeField($task['payload'] ?? '');
+        $task['result'] = $service->decodeField($task['result'] ?? '');
+        return $task;
     }
 
     private function generateTaskKey(): string

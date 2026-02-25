@@ -12,6 +12,7 @@ use app\model\VideoGeneration;
 use app\service\SchemaService;
 use app\service\TaskService;
 use think\Request;
+use think\facade\Db;
 
 class VideoController extends BaseApiController
 {
@@ -29,23 +30,33 @@ class VideoController extends BaseApiController
         $payload = $this->payload($request);
 
         $imageGenId = isset($payload['image_gen_id']) ? (int)$payload['image_gen_id'] : null;
-        if ($imageGenId !== null && $imageGenId > 0 && !ImageGeneration::find($imageGenId)) {
+        if ($imageGenId !== null && $imageGenId <= 0) {
+            $imageGenId = null;
+        }
+        if ($imageGenId !== null && !ImageGeneration::find($imageGenId)) {
             return $this->error('image generation not found', 404);
         }
 
-        $now = $this->now();
-        $item = VideoGeneration::create([
-            'image_gen_id' => $imageGenId,
-            'prompt' => trim((string)($payload['prompt'] ?? '')),
-            'video_url' => '/static/mock/video-' . time() . '.mp4',
-            'status' => 'completed',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $result = Db::transaction(function () use ($imageGenId, $payload) {
+            $now = $this->now();
+            $item = VideoGeneration::create([
+                'image_gen_id' => $imageGenId,
+                'prompt' => trim((string)($payload['prompt'] ?? '')),
+                'video_url' => '/static/mock/video-' . time() . '.mp4',
+                'status' => 'completed',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
 
-        $task = (new TaskService())->create('video.generate', ['video_generation_id' => $item['id']], 'completed');
+            $task = (new TaskService())->create('video.generate', [
+                'video_generation_id' => $item['id'],
+                'image_gen_id' => $imageGenId,
+            ], 'completed');
 
-        return $this->success(['video' => $item->toArray(), 'task' => $task->toArray()], 'created', 0, 201);
+            return ['video' => $item->toArray(), 'task' => $task->toArray()];
+        });
+
+        return $this->success($result, 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -77,18 +88,25 @@ class VideoController extends BaseApiController
             return $this->error('image generation not found', 404);
         }
 
-        $video = VideoGeneration::create([
-            'image_gen_id' => $imageGenId,
-            'prompt' => 'generated from image ' . $imageGenId,
-            'video_url' => '/static/mock/from-image-' . $imageGenId . '-' . time() . '.mp4',
-            'status' => 'completed',
-            'created_at' => $this->now(),
-            'updated_at' => $this->now(),
-        ]);
+        $result = Db::transaction(function () use ($imageGenId) {
+            $video = VideoGeneration::create([
+                'image_gen_id' => $imageGenId,
+                'prompt' => 'generated from image ' . $imageGenId,
+                'video_url' => '/static/mock/from-image-' . $imageGenId . '-' . time() . '.mp4',
+                'status' => 'completed',
+                'created_at' => $this->now(),
+                'updated_at' => $this->now(),
+            ]);
 
-        $task = (new TaskService())->create('video.generate.from-image', ['image_gen_id' => $imageGenId, 'video_generation_id' => $video['id']], 'completed');
+            $task = (new TaskService())->create('video.generate.from-image', [
+                'image_gen_id' => $imageGenId,
+                'video_generation_id' => $video['id'],
+            ], 'completed');
 
-        return $this->success(['video' => $video->toArray(), 'task' => $task->toArray()], 'generated');
+            return ['video' => $video->toArray(), 'task' => $task->toArray()];
+        });
+
+        return $this->success($result, 'generated');
     }
 
     public function batch(int $episodeId)
@@ -98,31 +116,38 @@ class VideoController extends BaseApiController
             return $this->error('episode not found', 404);
         }
 
-        $images = ImageGeneration::alias('ig')
-            ->join('scenes s', 's.id = ig.scene_id')
-            ->where('s.episode_id', $episodeId)
-            ->field('ig.*')
-            ->select();
+        $result = Db::transaction(function () use ($episodeId) {
+            $images = ImageGeneration::alias('ig')
+                ->join('scenes s', 's.id = ig.scene_id')
+                ->where('s.episode_id', $episodeId)
+                ->field('ig.*')
+                ->select();
 
-        $items = [];
-        foreach ($images as $image) {
-            $items[] = VideoGeneration::create([
-                'image_gen_id' => (int)$image['id'],
-                'prompt' => 'batch video for image ' . $image['id'],
-                'video_url' => '/static/mock/batch-video-' . $image['id'] . '-' . time() . '.mp4',
-                'status' => 'completed',
-                'created_at' => $this->now(),
-                'updated_at' => $this->now(),
-            ])->toArray();
-        }
+            $items = [];
+            foreach ($images as $image) {
+                $items[] = VideoGeneration::create([
+                    'image_gen_id' => (int)$image['id'],
+                    'prompt' => 'batch video for image ' . $image['id'],
+                    'video_url' => '/static/mock/batch-video-' . $image['id'] . '-' . time() . '.mp4',
+                    'status' => 'completed',
+                    'created_at' => $this->now(),
+                    'updated_at' => $this->now(),
+                ])->toArray();
+            }
 
-        $task = (new TaskService())->create('video.batch.generate', ['episode_id' => $episodeId, 'count' => count($items)], 'completed');
+            $task = (new TaskService())->create('video.batch.generate', [
+                'episode_id' => $episodeId,
+                'count' => count($items),
+            ], 'completed');
 
-        return $this->success([
-            'episode_id' => $episodeId,
-            'count' => count($items),
-            'items' => $items,
-            'task' => $task->toArray(),
-        ]);
+            return [
+                'episode_id' => $episodeId,
+                'count' => count($items),
+                'items' => $items,
+                'task' => $task->toArray(),
+            ];
+        });
+
+        return $this->success($result);
     }
 }
