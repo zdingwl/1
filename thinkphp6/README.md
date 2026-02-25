@@ -54,6 +54,8 @@ php -S 0.0.0.0:8000 -t public
 
 ```bash
 php scripts/route_check.php
+php scripts/schema_check.php
+./scripts/check_all.sh
 ```
 
 ## 下一步
