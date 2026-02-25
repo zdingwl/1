@@ -43,6 +43,10 @@ class StoryboardController extends BaseApiController
         }
 
         $sceneId = isset($payload['scene_id']) ? (int) $payload['scene_id'] : null;
+        if ($sceneId !== null && $sceneId <= 0) {
+            $sceneId = null;
+        }
+
         if ($sceneId !== null && !Scene::find($sceneId)) {
             return $this->error('scene not found', 404);
         }
@@ -73,7 +77,11 @@ class StoryboardController extends BaseApiController
 
         $payload = $this->payload($request);
         $sceneId = isset($payload['scene_id']) ? (int) $payload['scene_id'] : $storyboard['scene_id'];
-        if ($sceneId !== null && (int) $sceneId > 0 && !Scene::find((int) $sceneId)) {
+        if ($sceneId !== null && (int) $sceneId <= 0) {
+            $sceneId = null;
+        }
+
+        if ($sceneId !== null && !Scene::find((int) $sceneId)) {
             return $this->error('scene not found', 404);
         }
 

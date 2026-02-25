@@ -49,7 +49,15 @@ class TaskController extends BaseApiController
             return $this->error('task_type is required', 422);
         }
 
-        $taskKey = (string) ($payload['task_key'] ?? ('task_' . bin2hex(random_bytes(6))));
+        $taskKey = trim((string) ($payload['task_key'] ?? ''));
+        if ($taskKey === '') {
+            $taskKey = $this->generateTaskKey();
+        }
+
+        if (Task::where('task_key', $taskKey)->find()) {
+            return $this->error('task_key already exists', 409);
+        }
+
         $now = $this->now();
         $task = Task::create([
             'task_key' => $taskKey,
@@ -83,5 +91,10 @@ class TaskController extends BaseApiController
         ]);
 
         return $this->success($task->refresh()->toArray(), 'updated');
+    }
+
+    private function generateTaskKey(): string
+    {
+        return 'task_' . date('YmdHis') . '_' . bin2hex(random_bytes(4));
     }
 }
