@@ -6,8 +6,11 @@ namespace app\controller\Api\V1;
 
 use app\common\BaseApiController;
 use app\common\RequestPayload;
+use app\model\Episode;
+use app\model\ImageGeneration;
 use app\model\VideoGeneration;
 use app\service\SchemaService;
+use app\service\TaskService;
 use think\Request;
 
 class VideoController extends BaseApiController
@@ -24,16 +27,25 @@ class VideoController extends BaseApiController
     {
         SchemaService::ensureCoreTables();
         $payload = $this->payload($request);
+
+        $imageGenId = isset($payload['image_gen_id']) ? (int)$payload['image_gen_id'] : null;
+        if ($imageGenId !== null && $imageGenId > 0 && !ImageGeneration::find($imageGenId)) {
+            return $this->error('image generation not found', 404);
+        }
+
         $now = $this->now();
         $item = VideoGeneration::create([
-            'image_gen_id' => isset($payload['image_gen_id']) ? (int)$payload['image_gen_id'] : null,
+            'image_gen_id' => $imageGenId,
             'prompt' => trim((string)($payload['prompt'] ?? '')),
             'video_url' => '/static/mock/video-' . time() . '.mp4',
             'status' => 'completed',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        return $this->success($item->toArray(), 'created', 0, 201);
+
+        $task = (new TaskService())->create('video.generate', ['video_generation_id' => $item['id']], 'completed');
+
+        return $this->success(['video' => $item->toArray(), 'task' => $task->toArray()], 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -59,11 +71,58 @@ class VideoController extends BaseApiController
 
     public function fromImage(int $imageGenId)
     {
-        return $this->success(['image_gen_id' => $imageGenId, 'message' => 'mock video generation queued']);
+        SchemaService::ensureCoreTables();
+        $image = ImageGeneration::find($imageGenId);
+        if (!$image) {
+            return $this->error('image generation not found', 404);
+        }
+
+        $video = VideoGeneration::create([
+            'image_gen_id' => $imageGenId,
+            'prompt' => 'generated from image ' . $imageGenId,
+            'video_url' => '/static/mock/from-image-' . $imageGenId . '-' . time() . '.mp4',
+            'status' => 'completed',
+            'created_at' => $this->now(),
+            'updated_at' => $this->now(),
+        ]);
+
+        $task = (new TaskService())->create('video.generate.from-image', ['image_gen_id' => $imageGenId, 'video_generation_id' => $video['id']], 'completed');
+
+        return $this->success(['video' => $video->toArray(), 'task' => $task->toArray()], 'generated');
     }
 
     public function batch(int $episodeId)
     {
-        return $this->success(['episode_id' => $episodeId, 'message' => 'mock batch video generation queued']);
+        SchemaService::ensureCoreTables();
+        if (!Episode::find($episodeId)) {
+            return $this->error('episode not found', 404);
+        }
+
+        $images = ImageGeneration::alias('ig')
+            ->join('scenes s', 's.id = ig.scene_id')
+            ->where('s.episode_id', $episodeId)
+            ->field('ig.*')
+            ->select();
+
+        $items = [];
+        foreach ($images as $image) {
+            $items[] = VideoGeneration::create([
+                'image_gen_id' => (int)$image['id'],
+                'prompt' => 'batch video for image ' . $image['id'],
+                'video_url' => '/static/mock/batch-video-' . $image['id'] . '-' . time() . '.mp4',
+                'status' => 'completed',
+                'created_at' => $this->now(),
+                'updated_at' => $this->now(),
+            ])->toArray();
+        }
+
+        $task = (new TaskService())->create('video.batch.generate', ['episode_id' => $episodeId, 'count' => count($items)], 'completed');
+
+        return $this->success([
+            'episode_id' => $episodeId,
+            'count' => count($items),
+            'items' => $items,
+            'task' => $task->toArray(),
+        ]);
     }
 }

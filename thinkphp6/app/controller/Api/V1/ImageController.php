@@ -6,8 +6,11 @@ namespace app\controller\Api\V1;
 
 use app\common\BaseApiController;
 use app\common\RequestPayload;
+use app\model\Episode;
 use app\model\ImageGeneration;
+use app\model\Scene;
 use app\service\SchemaService;
+use app\service\TaskService;
 use think\Request;
 
 class ImageController extends BaseApiController
@@ -28,16 +31,29 @@ class ImageController extends BaseApiController
         if ($prompt === '') {
             return $this->error('prompt is required', 422);
         }
+
+        $sceneId = isset($payload['scene_id']) ? (int)$payload['scene_id'] : null;
+        if ($sceneId !== null && $sceneId > 0 && !Scene::find($sceneId)) {
+            return $this->error('scene not found', 404);
+        }
+
         $now = $this->now();
         $item = ImageGeneration::create([
-            'scene_id' => isset($payload['scene_id']) ? (int)$payload['scene_id'] : null,
+            'scene_id' => $sceneId,
             'prompt' => $prompt,
             'image_url' => '/static/mock/image-' . time() . '.png',
             'status' => 'completed',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        return $this->success($item->toArray(), 'created', 0, 201);
+
+        $taskService = new TaskService();
+        $task = $taskService->create('image.generate', ['image_generation_id' => $item['id'], 'prompt' => $prompt], 'completed');
+
+        return $this->success([
+            'image' => $item->toArray(),
+            'task' => $task->toArray(),
+        ], 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -63,26 +79,90 @@ class ImageController extends BaseApiController
 
     public function generateByScene(int $sceneId)
     {
-        return $this->success(['scene_id' => $sceneId, 'message' => 'mock scene image generation queued']);
+        SchemaService::ensureCoreTables();
+        $scene = Scene::find($sceneId);
+        if (!$scene) {
+            return $this->error('scene not found', 404);
+        }
+
+        $item = ImageGeneration::create([
+            'scene_id' => $sceneId,
+            'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'auto generated scene image',
+            'image_url' => '/static/mock/scene-' . $sceneId . '-' . time() . '.png',
+            'status' => 'completed',
+            'created_at' => $this->now(),
+            'updated_at' => $this->now(),
+        ]);
+
+        $task = (new TaskService())->create('image.generate.scene', ['scene_id' => $sceneId, 'image_generation_id' => $item['id']], 'completed');
+
+        return $this->success(['image' => $item->toArray(), 'task' => $task->toArray()], 'generated');
     }
 
-    public function upload()
+    public function upload(Request $request)
     {
-        return $this->success(['message' => 'upload accepted (mock)']);
+        $payload = $this->payload($request);
+        return $this->success([
+            'message' => 'upload accepted (mock)',
+            'filename' => (string)($payload['filename'] ?? ('upload-' . time() . '.png')),
+            'url' => '/static/mock/upload-' . time() . '.png',
+        ]);
     }
 
     public function backgrounds(int $episodeId)
     {
-        return $this->success(['episode_id' => $episodeId, 'items' => []]);
+        SchemaService::ensureCoreTables();
+        if (!Episode::find($episodeId)) {
+            return $this->error('episode not found', 404);
+        }
+
+        $sceneIds = Scene::where('episode_id', $episodeId)->column('id');
+        if (!$sceneIds) {
+            return $this->success(['episode_id' => $episodeId, 'items' => []]);
+        }
+
+        $items = ImageGeneration::whereIn('scene_id', $sceneIds)->order('id', 'desc')->select()->toArray();
+        return $this->success(['episode_id' => $episodeId, 'items' => $items]);
     }
 
     public function extractBackgrounds(int $episodeId)
     {
-        return $this->success(['episode_id' => $episodeId, 'message' => 'mock backgrounds extracted']);
+        SchemaService::ensureCoreTables();
+        if (!Episode::find($episodeId)) {
+            return $this->error('episode not found', 404);
+        }
+
+        $task = (new TaskService())->create('image.background.extract', ['episode_id' => $episodeId], 'completed');
+        return $this->success(['episode_id' => $episodeId, 'task' => $task->toArray(), 'message' => 'background extraction completed (mock)']);
     }
 
     public function batch(int $episodeId)
     {
-        return $this->success(['episode_id' => $episodeId, 'message' => 'mock batch generation queued']);
+        SchemaService::ensureCoreTables();
+        if (!Episode::find($episodeId)) {
+            return $this->error('episode not found', 404);
+        }
+
+        $scenes = Scene::where('episode_id', $episodeId)->order('sort_order', 'asc')->select();
+        $created = [];
+        foreach ($scenes as $scene) {
+            $created[] = ImageGeneration::create([
+                'scene_id' => (int)$scene['id'],
+                'prompt' => trim((string)$scene['prompt']) !== '' ? (string)$scene['prompt'] : 'batch generated image',
+                'image_url' => '/static/mock/batch-scene-' . $scene['id'] . '-' . time() . '.png',
+                'status' => 'completed',
+                'created_at' => $this->now(),
+                'updated_at' => $this->now(),
+            ])->toArray();
+        }
+
+        $task = (new TaskService())->create('image.batch.generate', ['episode_id' => $episodeId, 'count' => count($created)], 'completed');
+
+        return $this->success([
+            'episode_id' => $episodeId,
+            'count' => count($created),
+            'items' => $created,
+            'task' => $task->toArray(),
+        ]);
     }
 }

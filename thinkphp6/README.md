@@ -4,6 +4,8 @@
 
 > 说明：部分 AI/媒体相关接口目前为 **mock 逻辑**（返回结构与状态流可用，具体第三方能力待继续接入）。
 
+当前 images/videos/episode-workflow 已接入任务记录，调用会写入 `tasks` 表用于追踪。
+
 ## 当前覆盖模块
 
 - `health`
