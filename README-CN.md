@@ -666,4 +666,4 @@ Made with ❤️ by Huobao Team
 
 ## 🧩 ThinkPHP 6.0 重写版本
 
-仓库新增 `thinkphp6/` 目录，提供 Go 后端到 ThinkPHP 6 的迁移骨架与统一 API 网关入口，详见：`thinkphp6/README.md`。
+仓库新增 `thinkphp6/` 目录，并已完成首批可运行接口（dramas、ai-configs、tasks）迁移；其余模块会返回 501 提示未迁移，详见：`thinkphp6/README.md`。

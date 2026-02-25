@@ -1,11 +1,39 @@
 # ThinkPHP 6.0 重写版本（后端）
 
-这是把当前 Go(Gin) 后端迁移到 ThinkPHP 6 的第一版骨架，实现目标：
+这是把当前 Go(Gin) 后端迁移到 ThinkPHP 6 的第二版实现（在骨架基础上补充了可运行模块）。
 
-- 保留统一入口 `/api/v1/*`
-- 保留健康检查 `/health`、`/api/v1/health`
-- 通过网关控制器承接原有模块（如 dramas、images、videos、tasks 等）
-- 提供统一 JSON 返回格式，便于前端逐步无缝切换
+## 当前已迁移模块
+
+- ✅ 健康检查：`GET /health`、`GET /api/v1/health`
+- ✅ 剧本管理（dramas）：
+  - `GET /api/v1/dramas`
+  - `POST /api/v1/dramas`
+  - `GET /api/v1/dramas/stats`
+  - `GET /api/v1/dramas/{id}`
+  - `PUT /api/v1/dramas/{id}`
+  - `DELETE /api/v1/dramas/{id}`
+- ✅ AI 配置（ai-configs）：
+  - `GET /api/v1/ai-configs`
+  - `POST /api/v1/ai-configs`
+  - `POST /api/v1/ai-configs/test`
+  - `GET /api/v1/ai-configs/{id}`
+  - `PUT /api/v1/ai-configs/{id}`
+  - `DELETE /api/v1/ai-configs/{id}`
+- ✅ 任务查询（tasks）：
+  - `GET /api/v1/tasks`
+  - `GET /api/v1/tasks/{task_id}`
+
+## 暂未迁移模块
+
+其余 API 路径会命中统一降级路由，返回 `501` 和模块信息（用于提示迁移进度，而不是静默成功）。
+
+## 数据层说明
+
+- 使用 ThinkPHP 模型 + SQLite。
+- 首次请求时会自动创建核心表：
+  - `dramas`
+  - `ai_configs`
+- 数据库路径：`runtime/drama_generator.db`
 
 ## 目录结构
 
@@ -13,12 +41,17 @@
 thinkphp6/
 ├── app/
 │   ├── common/BaseApiController.php
-│   └── controller/Api/V1/
-│       ├── GatewayController.php
-│       └── HealthController.php
+│   ├── controller/Api/V1/
+│   │   ├── AIConfigController.php
+│   │   ├── DramaController.php
+│   │   ├── HealthController.php
+│   │   ├── NotImplementedController.php
+│   │   └── TaskController.php
+│   ├── model/
+│   │   ├── AIConfig.php
+│   │   └── Drama.php
+│   └── service/SchemaService.php
 ├── config/
-│   ├── app.php
-│   └── database.php
 ├── public/index.php
 ├── route/app.php
 └── composer.json
@@ -32,26 +65,8 @@ composer install
 php think run
 ```
 
-默认接口：
+## 迁移下一步建议
 
-- `GET /health`
-- `GET /api/v1/health`
-- `ANY /api/v1/{module}/{path?}`
-
-## 路由迁移策略
-
-Go 版 `api/routes/routes.go` 中所有模块路由，先迁移为：
-
-- 一级模块：`{module}`（例如 `dramas`, `ai-configs`, `generation`, `images`）
-- 其余路径：`{path}` 原样传入网关控制器
-
-后续可按模块拆分：
-
-1. 先落地 `app/model`（对应 domain/models）
-2. 再拆 `app/service`（对应 application/services）
-3. 最后把 `GatewayController` 按资源替换为独立控制器
-
-## 与原 Go 版的关系
-
-- 原项目仍可继续运行，ThinkPHP 版本位于 `thinkphp6/` 子目录
-- 可以通过 Nginx / API 网关把 `/api/v1` 切换到 ThinkPHP 服务，进行灰度迁移
+1. 继续迁移 `images/videos/storyboards` 控制器与服务层。
+2. 将目前控制器中的表结构初始化逻辑迁移到独立 migration。
+3. 对齐 Go 版响应字段（如分页、错误码、任务状态枚举）并补齐集成测试。
