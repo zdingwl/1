@@ -108,14 +108,16 @@ class SceneController extends BaseApiController
         if (!$scene) {
             return $this->error('scene not found', 404);
         }
-        $prompt = trim((string)$request->put('prompt', $request->post('prompt', $scene['prompt'])));
+        $payload = $this->payload($request);
+        $prompt = trim((string)($payload['prompt'] ?? $scene['prompt']));
         $scene->save(['prompt' => $prompt, 'updated_at' => $this->now()]);
         return $this->success($scene->refresh()->toArray(), 'updated');
     }
 
     public function generateImage(Request $request)
     {
-        $sceneId = (int)$request->post('scene_id', 0);
+        $payload = $this->payload($request);
+        $sceneId = (int)($payload['scene_id'] ?? 0);
         return $this->success([
             'scene_id' => $sceneId,
             'image_url' => '/static/mock/scene-' . ($sceneId ?: time()) . '.png',

@@ -113,7 +113,8 @@ class StoryboardController extends BaseApiController
 
     public function createStandalone(Request $request)
     {
-        $episodeId = (int)$request->post('episode_id', 0);
+        $payload = $this->payload($request);
+        $episodeId = (int)($payload['episode_id'] ?? 0);
         if ($episodeId <= 0) {
             return $this->error('episode_id is required', 422);
         }

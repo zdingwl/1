@@ -212,7 +212,8 @@ class DramaController extends BaseApiController
             return $this->error('drama not found', 404);
         }
 
-        $progress = max(0, min(100, (int)$request->put('progress', $request->post('progress', 0))));
+        $payload = $this->payload($request);
+        $progress = max(0, min(100, (int)($payload['progress'] ?? $drama['progress'])));
         $drama->save(['progress' => $progress, 'updated_at' => $this->now()]);
 
         return $this->success($drama->refresh()->toArray(), 'updated');

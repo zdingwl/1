@@ -82,6 +82,7 @@ class PropController extends BaseApiController
 
     public function associate(int $id, Request $request)
     {
-        return $this->success(['storyboard_id' => $id, 'prop_ids' => (array)$request->post('prop_ids', [])], 'associated');
+        $payload = $this->payload($request);
+        return $this->success(['storyboard_id' => $id, 'prop_ids' => (array)($payload['prop_ids'] ?? [])], 'associated');
     }
 }

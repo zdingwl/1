@@ -47,7 +47,8 @@ class CharacterController extends BaseApiController
 
     public function batchGenerateImages(Request $request)
     {
-        $ids = (array)$request->post('character_ids', []);
+        $payload = $this->payload($request);
+        $ids = (array)($payload['character_ids'] ?? []);
         return $this->success(['requested_ids' => $ids, 'message' => 'mock batch image generation queued']);
     }
 
@@ -68,7 +69,11 @@ class CharacterController extends BaseApiController
         if (!$character) {
             return $this->error('character not found', 404);
         }
-        $libraryId = (int)$request->put('library_id', 0);
+        $payload = $this->payload($request);
+        $libraryId = isset($payload['library_id']) ? (int)$payload['library_id'] : null;
+        if ($libraryId !== null && $libraryId <= 0) {
+            $libraryId = null;
+        }
         $character->save(['library_id' => $libraryId, 'updated_at' => $this->now()]);
         return $this->success($character->refresh()->toArray(), 'updated');
     }

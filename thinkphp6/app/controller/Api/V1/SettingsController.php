@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace app\controller\Api\V1;
 
 use app\common\BaseApiController;
+use app\common\RequestPayload;
 use app\model\AppSetting;
 use app\service\SchemaService;
 use think\Request;
 
 class SettingsController extends BaseApiController
 {
+    use RequestPayload;
     public function language()
     {
         SchemaService::ensureCoreTables();
@@ -24,7 +26,8 @@ class SettingsController extends BaseApiController
     {
         SchemaService::ensureCoreTables();
 
-        $language = trim((string)$request->put('language', $request->post('language', 'zh-CN')));
+        $payload = $this->payload($request);
+        $language = trim((string)($payload['language'] ?? 'zh-CN'));
         if ($language === '') {
             return $this->error('language is required', 422);
         }
