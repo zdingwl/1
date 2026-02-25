@@ -48,6 +48,16 @@ php -S 0.0.0.0:8000 -t public
 ```
 
 
+
+## 代码说明（已注释）
+
+本轮已对以下核心文件补充详细注释，便于后续维护与继续迁移：
+
+- `app/common/BaseApiController.php`（统一响应规范）
+- `app/common/RequestPayload.php`（请求参数归一化策略）
+- `app/service/TaskService.php`（任务生命周期与 JSON 字段策略）
+- `app/controller/Api/V1/HealthController.php`（数据库与 schema 实际健康检查）
+
 ## 本地自检
 
 可在不启动服务情况下检查路由绑定是否存在对应控制器与方法：
