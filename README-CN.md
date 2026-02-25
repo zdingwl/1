@@ -663,3 +663,7 @@ A: GORM 会在首次启动时自动创建表，检查日志确认迁移是否成
 Made with ❤️ by Huobao Team
 
 </div>
+
+## 🧩 ThinkPHP 6.0 重写版本
+
+仓库新增 `thinkphp6/` 目录，提供 Go 后端到 ThinkPHP 6 的迁移骨架与统一 API 网关入口，详见：`thinkphp6/README.md`。

@@ -1,0 +1,13 @@
+{
+  "name": "drama-generator/thinkphp6-rewrite",
+  "type": "project",
+  "require": {
+    "php": ">=8.1",
+    "topthink/framework": "^6.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "app\\": "app/"
+    }
+  }
+}
