@@ -88,4 +88,39 @@ class SceneController extends BaseApiController
         $scene->delete();
         return $this->success(['id' => $id], 'deleted');
     }
+
+
+    public function createStandalone(Request $request)
+    {
+        SchemaService::ensureCoreTables();
+        $payload = $this->payload($request);
+        $episodeId = (int)($payload['episode_id'] ?? 0);
+        if ($episodeId <= 0 || !Episode::find($episodeId)) {
+            return $this->error('episode not found', 404);
+        }
+        return $this->create($request, $episodeId);
+    }
+
+    public function updatePrompt(Request $request, int $id)
+    {
+        SchemaService::ensureCoreTables();
+        $scene = Scene::find($id);
+        if (!$scene) {
+            return $this->error('scene not found', 404);
+        }
+        $prompt = trim((string)$request->put('prompt', $request->post('prompt', $scene['prompt'])));
+        $scene->save(['prompt' => $prompt, 'updated_at' => $this->now()]);
+        return $this->success($scene->refresh()->toArray(), 'updated');
+    }
+
+    public function generateImage(Request $request)
+    {
+        $sceneId = (int)$request->post('scene_id', 0);
+        return $this->success([
+            'scene_id' => $sceneId,
+            'image_url' => '/static/mock/scene-' . ($sceneId ?: time()) . '.png',
+            'message' => 'mock scene image generated',
+        ]);
+    }
+
 }

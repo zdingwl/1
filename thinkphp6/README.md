@@ -1,69 +1,43 @@
-# ThinkPHP 6.0 重写版本（可运行）
+# ThinkPHP 6.0 重写版本（持续推进中）
 
-本目录是 Go(Gin) 后端的 ThinkPHP 6.0 重写版本，当前已经具备一套可运行的核心链路：
+当前已把 Go 版主要 API 分组逐步迁移到 ThinkPHP6 路由与控制器，项目可以运行，且大多数入口已可调用。
 
-`Drama -> Episode -> Scene -> Storyboard`，以及 `AI 配置`、`任务状态`。
+> 说明：部分 AI/媒体相关接口目前为 **mock 逻辑**（返回结构与状态流可用，具体第三方能力待继续接入）。
 
-## 已实现接口
+## 当前覆盖模块
 
-### 基础
-- `GET /health`
-- `GET /api/v1/health`
-
-### Drama
-- `GET /api/v1/dramas`
-- `POST /api/v1/dramas`
-- `GET /api/v1/dramas/stats`
-- `GET /api/v1/dramas/{id}`
-- `PUT /api/v1/dramas/{id}`
-- `DELETE /api/v1/dramas/{id}`
-
-### Episode
-- `GET /api/v1/dramas/{dramaId}/episodes`
-- `POST /api/v1/dramas/{dramaId}/episodes`
-- `PUT /api/v1/episodes/{id}`
-- `DELETE /api/v1/episodes/{id}`
-
-### Scene
-- `GET /api/v1/episodes/{episodeId}/scenes`
-- `POST /api/v1/episodes/{episodeId}/scenes`
-- `PUT /api/v1/scenes/{id}`
-- `DELETE /api/v1/scenes/{id}`
-
-### Storyboard
-- `GET /api/v1/episodes/{episodeId}/storyboards`
-- `POST /api/v1/episodes/{episodeId}/storyboards`
-- `PUT /api/v1/storyboards/{id}`
-- `DELETE /api/v1/storyboards/{id}`
-
-### AI Config
-- `GET /api/v1/ai-configs`
-- `POST /api/v1/ai-configs`
-- `POST /api/v1/ai-configs/test`（当前 mock）
-- `GET /api/v1/ai-configs/{id}`
-- `PUT /api/v1/ai-configs/{id}`
-- `DELETE /api/v1/ai-configs/{id}`
-
-### Task
-- `GET /api/v1/tasks`
-- `POST /api/v1/tasks`
-- `GET /api/v1/tasks/{taskId}`
-- `PUT /api/v1/tasks/{taskId}`
+- `health`
+- `dramas`（含 outline/characters/episodes/progress）
+- `generation`
+- `character-library`
+- `characters`
+- `props`
+- `upload`
+- `episodes`（workflow）
+- `scenes`
+- `images`
+- `videos`
+- `video-merges`
+- `assets`
+- `storyboards`
+- `audio`
+- `settings`
+- `ai-configs`
+- `tasks`
 
 ## 数据结构
 
-`SchemaService` 会在首次请求时自动创建 SQLite 表：
+`SchemaService` 首次请求自动建表（SQLite）：
 
-- `dramas`
-- `episodes`
-- `scenes`
-- `storyboards`
-- `ai_configs`
-- `tasks`
+- dramas / episodes / scenes / storyboards
+- ai_configs / tasks
+- character_library / characters / props
+- image_generations / video_generations
+- assets / app_settings
 
 数据库文件：`runtime/drama_generator.db`
 
-## 运行方式
+## 启动
 
 ```bash
 cd thinkphp6
@@ -71,8 +45,8 @@ composer install
 php -S 0.0.0.0:8000 -t public
 ```
 
-然后访问：`http://localhost:8000/api/v1/health`
+## 下一步
 
-## 关于未迁移模块
-
-未实现的模块会走兜底路由并返回 `501`，用于明确提示迁移进度，避免“假成功”的接口。
+1. 将 mock 接口替换成真实 AI 图像/视频/音频服务调用。
+2. 引入 ThinkPHP migration（替代运行时自动建表）。
+3. 增加集成测试（接口级别），覆盖关键业务流。

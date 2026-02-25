@@ -666,4 +666,4 @@ Made with ❤️ by Huobao Team
 
 ## 🧩 ThinkPHP 6.0 重写版本
 
-仓库新增 `thinkphp6/` 目录，并已重写可运行的核心链路（Drama/Episode/Scene/Storyboard + AI Config + Task）。可直接启动并进行 CRUD 联调，详见：`thinkphp6/README.md`。
+仓库新增 `thinkphp6/` 目录，并已继续补齐 generation/character-library/characters/props/images/videos/assets/audio/settings 等模块入口；当前可运行，部分 AI/媒体能力为 mock，详见：`thinkphp6/README.md`。

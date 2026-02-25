@@ -101,4 +101,35 @@ class StoryboardController extends BaseApiController
         $storyboard->delete();
         return $this->success(['id' => $id], 'deleted');
     }
+
+
+    public function createStandalone(Request $request)
+    {
+        $episodeId = (int)$request->post('episode_id', 0);
+        if ($episodeId <= 0) {
+            return $this->error('episode_id is required', 422);
+        }
+        return $this->create($request, $episodeId);
+    }
+
+    public function framePrompt(int $id)
+    {
+        return $this->success([
+            'storyboard_id' => $id,
+            'prompt' => '镜头提示词（mock）: cinematic, dramatic lighting, 4k',
+        ]);
+    }
+
+    public function framePrompts(int $id)
+    {
+        return $this->success([
+            'storyboard_id' => $id,
+            'items' => [
+                ['type' => 'start', 'prompt' => '起始帧提示词（mock）'],
+                ['type' => 'keyframe', 'prompt' => '关键帧提示词（mock）'],
+                ['type' => 'end', 'prompt' => '结束帧提示词（mock）'],
+            ],
+        ]);
+    }
+
 }
