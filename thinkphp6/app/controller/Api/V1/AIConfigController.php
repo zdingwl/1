@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace app\controller\Api\V1;
 
 use app\common\BaseApiController;
+use app\common\RequestPayload;
 use app\model\AIConfig;
 use app\service\SchemaService;
 use think\Request;
 
 class AIConfigController extends BaseApiController
 {
+    use RequestPayload;
+
     public function index()
     {
         SchemaService::ensureCoreTables();
@@ -20,26 +23,28 @@ class AIConfigController extends BaseApiController
     public function create(Request $request)
     {
         SchemaService::ensureCoreTables();
-        $payload = $request->post();
 
-        $name = trim((string)($payload['name'] ?? ''));
-        $provider = trim((string)($payload['provider'] ?? ''));
+        $payload = $this->payload($request);
+        $name = trim((string) ($payload['name'] ?? ''));
+        $provider = trim((string) ($payload['provider'] ?? ''));
+
         if ($name === '' || $provider === '') {
             return $this->error('name and provider are required', 422);
         }
 
-        $now = date('Y-m-d H:i:s');
+        $now = $this->now();
         $config = AIConfig::create([
             'name' => $name,
             'provider' => $provider,
-            'model' => (string)($payload['model'] ?? ''),
-            'endpoint' => (string)($payload['endpoint'] ?? ''),
-            'is_enabled' => (int)($payload['is_enabled'] ?? 1),
+            'model' => trim((string) ($payload['model'] ?? '')),
+            'endpoint' => trim((string) ($payload['endpoint'] ?? '')),
+            'api_key_masked' => $this->maskApiKey((string) ($payload['api_key'] ?? '')),
+            'is_enabled' => (int) ($payload['is_enabled'] ?? 1) === 1 ? 1 : 0,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
 
-        return $this->success($config->toArray(), 'created');
+        return $this->success($config->toArray(), 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -60,14 +65,17 @@ class AIConfigController extends BaseApiController
             return $this->error('config not found', 404);
         }
 
-        $payload = $request->put();
+        $payload = $this->payload($request);
         $config->save([
-            'name' => (string)($payload['name'] ?? $config['name']),
-            'provider' => (string)($payload['provider'] ?? $config['provider']),
-            'model' => (string)($payload['model'] ?? $config['model']),
-            'endpoint' => (string)($payload['endpoint'] ?? $config['endpoint']),
-            'is_enabled' => (int)($payload['is_enabled'] ?? $config['is_enabled']),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'name' => trim((string) ($payload['name'] ?? $config['name'])),
+            'provider' => trim((string) ($payload['provider'] ?? $config['provider'])),
+            'model' => trim((string) ($payload['model'] ?? $config['model'])),
+            'endpoint' => trim((string) ($payload['endpoint'] ?? $config['endpoint'])),
+            'api_key_masked' => isset($payload['api_key'])
+                ? $this->maskApiKey((string) $payload['api_key'])
+                : $config['api_key_masked'],
+            'is_enabled' => isset($payload['is_enabled']) ? ((int) $payload['is_enabled'] === 1 ? 1 : 0) : $config['is_enabled'],
+            'updated_at' => $this->now(),
         ]);
 
         return $this->success($config->refresh()->toArray(), 'updated');
@@ -87,14 +95,32 @@ class AIConfigController extends BaseApiController
 
     public function testConnection(Request $request)
     {
-        $provider = (string)$request->post('provider', '');
-        $model = (string)$request->post('model', '');
+        $payload = $this->payload($request);
+        $provider = trim((string) ($payload['provider'] ?? ''));
+        $model = trim((string) ($payload['model'] ?? ''));
+
+        if ($provider === '') {
+            return $this->error('provider is required', 422);
+        }
 
         return $this->success([
             'provider' => $provider,
             'model' => $model,
             'reachable' => true,
-            'note' => 'mock validation success, please integrate real provider SDK',
+            'latency_ms' => 35,
+            'note' => 'mock check passed, replace with real provider SDK integration',
         ]);
+    }
+
+    private function maskApiKey(string $apiKey): string
+    {
+        $apiKey = trim($apiKey);
+        if ($apiKey === '') {
+            return '';
+        }
+        if (strlen($apiKey) <= 8) {
+            return str_repeat('*', strlen($apiKey));
+        }
+        return substr($apiKey, 0, 4) . str_repeat('*', max(1, strlen($apiKey) - 8)) . substr($apiKey, -4);
     }
 }

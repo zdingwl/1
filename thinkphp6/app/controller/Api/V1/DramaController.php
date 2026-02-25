@@ -5,21 +5,29 @@ declare(strict_types=1);
 namespace app\controller\Api\V1;
 
 use app\common\BaseApiController;
+use app\common\RequestPayload;
 use app\model\Drama;
 use app\service\SchemaService;
 use think\Request;
 
 class DramaController extends BaseApiController
 {
+    use RequestPayload;
+
     public function index(Request $request)
     {
         SchemaService::ensureCoreTables();
 
         $page = max(1, (int) $request->get('page', 1));
         $pageSize = max(1, min(100, (int) $request->get('page_size', 20)));
+        $keyword = trim((string) $request->get('keyword', ''));
 
         $query = Drama::order('id', 'desc');
-        $total = $query->count();
+        if ($keyword !== '') {
+            $query->whereLike('title', '%' . $keyword . '%');
+        }
+
+        $total = (clone $query)->count();
         $items = $query->page($page, $pageSize)->select()->toArray();
 
         return $this->success([
@@ -36,24 +44,24 @@ class DramaController extends BaseApiController
     {
         SchemaService::ensureCoreTables();
 
-        $payload = $request->post();
-        $title = trim((string)($payload['title'] ?? ''));
+        $payload = $this->payload($request);
+        $title = trim((string) ($payload['title'] ?? ''));
         if ($title === '') {
             return $this->error('title is required', 422);
         }
 
-        $now = date('Y-m-d H:i:s');
+        $now = $this->now();
         $drama = Drama::create([
             'title' => $title,
-            'genre' => (string)($payload['genre'] ?? ''),
-            'synopsis' => (string)($payload['synopsis'] ?? ''),
-            'progress' => (int)($payload['progress'] ?? 0),
-            'status' => (string)($payload['status'] ?? 'draft'),
+            'genre' => trim((string) ($payload['genre'] ?? '')),
+            'synopsis' => trim((string) ($payload['synopsis'] ?? '')),
+            'progress' => max(0, min(100, (int) ($payload['progress'] ?? 0))),
+            'status' => trim((string) ($payload['status'] ?? 'draft')),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
 
-        return $this->success($drama->toArray(), 'created');
+        return $this->success($drama->toArray(), 'created', 0, 201);
     }
 
     public function read(int $id)
@@ -77,14 +85,19 @@ class DramaController extends BaseApiController
             return $this->error('drama not found', 404);
         }
 
-        $payload = $request->put();
+        $payload = $this->payload($request);
+        $title = trim((string) ($payload['title'] ?? $drama['title']));
+        if ($title === '') {
+            return $this->error('title is required', 422);
+        }
+
         $drama->save([
-            'title' => (string)($payload['title'] ?? $drama['title']),
-            'genre' => (string)($payload['genre'] ?? $drama['genre']),
-            'synopsis' => (string)($payload['synopsis'] ?? $drama['synopsis']),
-            'progress' => (int)($payload['progress'] ?? $drama['progress']),
-            'status' => (string)($payload['status'] ?? $drama['status']),
-            'updated_at' => date('Y-m-d H:i:s'),
+            'title' => $title,
+            'genre' => trim((string) ($payload['genre'] ?? $drama['genre'])),
+            'synopsis' => trim((string) ($payload['synopsis'] ?? $drama['synopsis'])),
+            'progress' => max(0, min(100, (int) ($payload['progress'] ?? $drama['progress']))),
+            'status' => trim((string) ($payload['status'] ?? $drama['status'])),
+            'updated_at' => $this->now(),
         ]);
 
         return $this->success($drama->refresh()->toArray(), 'updated');
@@ -107,14 +120,11 @@ class DramaController extends BaseApiController
     {
         SchemaService::ensureCoreTables();
 
-        $total = Drama::count();
-        $completed = Drama::where('status', 'completed')->count();
-        $draft = Drama::where('status', 'draft')->count();
-
         return $this->success([
-            'total' => $total,
-            'completed' => $completed,
-            'draft' => $draft,
+            'total' => Drama::count(),
+            'completed' => Drama::where('status', 'completed')->count(),
+            'draft' => Drama::where('status', 'draft')->count(),
+            'avg_progress' => (float) Drama::avg('progress'),
         ]);
     }
 }

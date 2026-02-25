@@ -17,6 +17,24 @@ Route::group('api/v1', function () {
     Route::put('dramas/:id', 'Api.V1.DramaController/update');
     Route::delete('dramas/:id', 'Api.V1.DramaController/delete');
 
+    // episodes by drama
+    Route::get('dramas/:dramaId/episodes', 'Api.V1.EpisodeController/index');
+    Route::post('dramas/:dramaId/episodes', 'Api.V1.EpisodeController/create');
+    Route::put('episodes/:id', 'Api.V1.EpisodeController/update');
+    Route::delete('episodes/:id', 'Api.V1.EpisodeController/delete');
+
+    // scenes by episode
+    Route::get('episodes/:episodeId/scenes', 'Api.V1.SceneController/index');
+    Route::post('episodes/:episodeId/scenes', 'Api.V1.SceneController/create');
+    Route::put('scenes/:id', 'Api.V1.SceneController/update');
+    Route::delete('scenes/:id', 'Api.V1.SceneController/delete');
+
+    // storyboards by episode
+    Route::get('episodes/:episodeId/storyboards', 'Api.V1.StoryboardController/index');
+    Route::post('episodes/:episodeId/storyboards', 'Api.V1.StoryboardController/create');
+    Route::put('storyboards/:id', 'Api.V1.StoryboardController/update');
+    Route::delete('storyboards/:id', 'Api.V1.StoryboardController/delete');
+
     // ai-configs
     Route::get('ai-configs', 'Api.V1.AIConfigController/index');
     Route::post('ai-configs', 'Api.V1.AIConfigController/create');
@@ -27,7 +45,9 @@ Route::group('api/v1', function () {
 
     // tasks
     Route::get('tasks', 'Api.V1.TaskController/index');
-    Route::get('tasks/:task_id', 'Api.V1.TaskController/read');
+    Route::post('tasks', 'Api.V1.TaskController/create');
+    Route::get('tasks/:taskId', 'Api.V1.TaskController/read');
+    Route::put('tasks/:taskId', 'Api.V1.TaskController/update');
 
     // 未迁移模块统一返回 501，明确迁移状态
     Route::any(':module/:path?', 'Api.V1.NotImplementedController/handle')

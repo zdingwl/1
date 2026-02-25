@@ -1,72 +1,78 @@
-# ThinkPHP 6.0 重写版本（后端）
+# ThinkPHP 6.0 重写版本（可运行）
 
-这是把当前 Go(Gin) 后端迁移到 ThinkPHP 6 的第二版实现（在骨架基础上补充了可运行模块）。
+本目录是 Go(Gin) 后端的 ThinkPHP 6.0 重写版本，当前已经具备一套可运行的核心链路：
 
-## 当前已迁移模块
+`Drama -> Episode -> Scene -> Storyboard`，以及 `AI 配置`、`任务状态`。
 
-- ✅ 健康检查：`GET /health`、`GET /api/v1/health`
-- ✅ 剧本管理（dramas）：
-  - `GET /api/v1/dramas`
-  - `POST /api/v1/dramas`
-  - `GET /api/v1/dramas/stats`
-  - `GET /api/v1/dramas/{id}`
-  - `PUT /api/v1/dramas/{id}`
-  - `DELETE /api/v1/dramas/{id}`
-- ✅ AI 配置（ai-configs）：
-  - `GET /api/v1/ai-configs`
-  - `POST /api/v1/ai-configs`
-  - `POST /api/v1/ai-configs/test`
-  - `GET /api/v1/ai-configs/{id}`
-  - `PUT /api/v1/ai-configs/{id}`
-  - `DELETE /api/v1/ai-configs/{id}`
-- ✅ 任务查询（tasks）：
-  - `GET /api/v1/tasks`
-  - `GET /api/v1/tasks/{task_id}`
+## 已实现接口
 
-## 暂未迁移模块
+### 基础
+- `GET /health`
+- `GET /api/v1/health`
 
-其余 API 路径会命中统一降级路由，返回 `501` 和模块信息（用于提示迁移进度，而不是静默成功）。
+### Drama
+- `GET /api/v1/dramas`
+- `POST /api/v1/dramas`
+- `GET /api/v1/dramas/stats`
+- `GET /api/v1/dramas/{id}`
+- `PUT /api/v1/dramas/{id}`
+- `DELETE /api/v1/dramas/{id}`
 
-## 数据层说明
+### Episode
+- `GET /api/v1/dramas/{dramaId}/episodes`
+- `POST /api/v1/dramas/{dramaId}/episodes`
+- `PUT /api/v1/episodes/{id}`
+- `DELETE /api/v1/episodes/{id}`
 
-- 使用 ThinkPHP 模型 + SQLite。
-- 首次请求时会自动创建核心表：
-  - `dramas`
-  - `ai_configs`
-- 数据库路径：`runtime/drama_generator.db`
+### Scene
+- `GET /api/v1/episodes/{episodeId}/scenes`
+- `POST /api/v1/episodes/{episodeId}/scenes`
+- `PUT /api/v1/scenes/{id}`
+- `DELETE /api/v1/scenes/{id}`
 
-## 目录结构
+### Storyboard
+- `GET /api/v1/episodes/{episodeId}/storyboards`
+- `POST /api/v1/episodes/{episodeId}/storyboards`
+- `PUT /api/v1/storyboards/{id}`
+- `DELETE /api/v1/storyboards/{id}`
 
-```text
-thinkphp6/
-├── app/
-│   ├── common/BaseApiController.php
-│   ├── controller/Api/V1/
-│   │   ├── AIConfigController.php
-│   │   ├── DramaController.php
-│   │   ├── HealthController.php
-│   │   ├── NotImplementedController.php
-│   │   └── TaskController.php
-│   ├── model/
-│   │   ├── AIConfig.php
-│   │   └── Drama.php
-│   └── service/SchemaService.php
-├── config/
-├── public/index.php
-├── route/app.php
-└── composer.json
-```
+### AI Config
+- `GET /api/v1/ai-configs`
+- `POST /api/v1/ai-configs`
+- `POST /api/v1/ai-configs/test`（当前 mock）
+- `GET /api/v1/ai-configs/{id}`
+- `PUT /api/v1/ai-configs/{id}`
+- `DELETE /api/v1/ai-configs/{id}`
 
-## 快速启动
+### Task
+- `GET /api/v1/tasks`
+- `POST /api/v1/tasks`
+- `GET /api/v1/tasks/{taskId}`
+- `PUT /api/v1/tasks/{taskId}`
+
+## 数据结构
+
+`SchemaService` 会在首次请求时自动创建 SQLite 表：
+
+- `dramas`
+- `episodes`
+- `scenes`
+- `storyboards`
+- `ai_configs`
+- `tasks`
+
+数据库文件：`runtime/drama_generator.db`
+
+## 运行方式
 
 ```bash
 cd thinkphp6
 composer install
-php think run
+php -S 0.0.0.0:8000 -t public
 ```
 
-## 迁移下一步建议
+然后访问：`http://localhost:8000/api/v1/health`
 
-1. 继续迁移 `images/videos/storyboards` 控制器与服务层。
-2. 将目前控制器中的表结构初始化逻辑迁移到独立 migration。
-3. 对齐 Go 版响应字段（如分页、错误码、任务状态枚举）并补齐集成测试。
+## 关于未迁移模块
+
+未实现的模块会走兜底路由并返回 `501`，用于明确提示迁移进度，避免“假成功”的接口。

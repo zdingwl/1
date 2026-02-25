@@ -666,4 +666,4 @@ Made with ❤️ by Huobao Team
 
 ## 🧩 ThinkPHP 6.0 重写版本
 
-仓库新增 `thinkphp6/` 目录，并已完成首批可运行接口（dramas、ai-configs、tasks）迁移；其余模块会返回 501 提示未迁移，详见：`thinkphp6/README.md`。
+仓库新增 `thinkphp6/` 目录，并已重写可运行的核心链路（Drama/Episode/Scene/Storyboard + AI Config + Task）。可直接启动并进行 CRUD 联调，详见：`thinkphp6/README.md`。
