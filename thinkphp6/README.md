@@ -47,6 +47,15 @@ composer install
 php -S 0.0.0.0:8000 -t public
 ```
 
+
+## 本地自检
+
+可在不启动服务情况下检查路由绑定是否存在对应控制器与方法：
+
+```bash
+php scripts/route_check.php
+```
+
 ## 下一步
 
 1. 将 mock 接口替换成真实 AI 图像/视频/音频服务调用。
